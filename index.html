@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="theme-color" content="#1A1208" />
+  <title>Takshashila — Attendance</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:    #F0E8D8;
+      --cream2:   #E8DFC8;
+      --cream3:   #DDD3BE;
+      --ink:      #1A1208;
+      --ink2:     #3D3020;
+      --ink3:     #6B5C45;
+      --border:   #C8BAA0;
+      --green:    #2D6A3F;
+      --green-bg: #E8F2EB;
+      --red:      #8B2020;
+      --red-bg:   #F5E8E8;
+      --amber:    #8B6914;
+      --amber-bg: #F5EDD8;
+      --r:        10px;
+      --safe-b:   env(safe-area-inset-bottom, 0px);
+      --header-h: 65px;
+      --tabs-h:   42px;
+    }
+
+    html, body { height: 100%; background: var(--cream); color: var(--ink); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+
+    /* ── SPLASH SCREEN ── */
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--ink);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      transition: opacity .5s ease;
+    }
+    #splash.fade-out { opacity: 0; pointer-events: none; }
+    .splash-logo {
+      font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900;
+      letter-spacing: 6px; text-transform: uppercase; color: var(--cream);
+    }
+    .splash-sub {
+      font-family: 'Playfair Display', serif; font-style: italic;
+      font-size: 13px; color: var(--cream3); letter-spacing: 0.5px;
+    }
+    .splash-spinner {
+      width: 28px; height: 28px; border: 3px solid rgba(240,232,216,.2);
+      border-top-color: var(--cream); border-radius: 50%;
+      animation: spin .8s linear infinite; margin-top: 8px;
+    }
+    .splash-status { font-size: 12px; color: var(--ink3); margin-top: 4px; letter-spacing: 0.3px; }
+
+    /* ── HEADER ── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--ink); color: var(--cream);
+      padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 3px solid var(--ink2); height: var(--header-h);
+    }
+    .logo-block { display: flex; flex-direction: column; }
+    .logo { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; color: var(--cream); line-height: 1; }
+    .logo-sub { font-family: 'Playfair Display', serif; font-style: italic; font-size: 10px; color: var(--cream3); letter-spacing: 0.5px; margin-top: 3px; }
+    .header-right { display: flex; gap: 8px; align-items: center; }
+    .date-badge { font-size: 11px; color: var(--ink2); background: var(--cream2); padding: 5px 11px; border-radius: 5px; font-weight: 600; letter-spacing: 0.3px; }
+    .icon-btn { background: transparent; border: 1px solid var(--cream3); border-radius: 6px; padding: 6px 10px; font-size: 14px; cursor: pointer; color: var(--cream); transition: opacity .2s; }
+    .icon-btn:hover { opacity: .75; }
+    .icon-btn:active { opacity: .5; }
+
+    /* ── OFFLINE BANNER ── */
+    #offline-banner {
+      background: var(--amber); color: white; text-align: center;
+      font-size: 12px; font-weight: 600; padding: 6px; display: none;
+    }
+    body.offline #offline-banner { display: block; }
+
+    /* ── PENDING SYNC BADGE ── */
+    .sync-badge {
+      background: var(--amber); color: white; border-radius: 99px;
+      font-size: 10px; font-weight: 700; padding: 2px 6px;
+      display: none; vertical-align: middle; margin-left: 4px;
+    }
+    .sync-badge.show { display: inline; }
+
+    /* ── TABS ── */
+    .tabs { display: flex; background: var(--ink2); position: sticky; top: var(--header-h); z-index: 99; border-bottom: 2px solid var(--ink); height: var(--tabs-h); }
+    .tab { flex: 1; padding: 0 4px; border: none; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; background: transparent; color: var(--cream3); transition: all .2s; border-bottom: 3px solid transparent; margin-bottom: -2px; height: 100%; }
+    .tab:hover { color: var(--cream2); }
+    .tab.active { color: var(--cream); border-bottom-color: var(--cream2); }
+
+    /* ── LAYOUT ── */
+    .app-body { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    @media (min-width: 900px) {
+      .app-body { padding: 0 28px; }
+      #page-mark { display: none; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+      #page-mark.active { display: grid; }
+      .mark-sidebar { position: sticky; top: calc(var(--header-h) + var(--tabs-h) + 20px); }
+      #page-dashboard.active { display: block; max-width: 760px; margin: 0 auto; }
+      #page-settings { display: none; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+      #page-settings.active { display: grid; }
+      .settings-col { display: flex; flex-direction: column; }
+    }
+
+    @media (max-width: 899px) {
+      .action-bar-fixed {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: var(--cream); border-top: 1.5px solid var(--border);
+        padding: 10px 16px; padding-bottom: calc(10px + var(--safe-b));
+        z-index: 90; display: flex; gap: 8px;
+      }
+      #page-mark.active { padding-bottom: calc(80px + var(--safe-b)); }
+      .mark-sidebar { display: none; }
+      .settings-col { display: contents; }
+    }
+
+    /* ── DATE PICKER BAR ── */
+    .date-bar {
+      display: flex; align-items: center; gap: 8px;
+      margin: 16px 0 4px; flex-wrap: wrap;
+    }
+    .date-bar label { font-size: 12px; font-weight: 600; color: var(--ink3); }
+    .date-input {
+      background: white; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 7px 11px; font-family: 'Inter', sans-serif; font-size: 13px;
+      color: var(--ink); outline: none; cursor: pointer; transition: border-color .15s;
+    }
+    .date-input:focus { border-color: var(--ink2); }
+    .date-today-btn {
+      background: var(--cream2); border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 7px 12px; font-size: 11px; font-weight: 600; color: var(--ink2);
+      cursor: pointer; transition: all .15s;
+    }
+    .date-today-btn:hover { background: var(--cream3); }
+    .date-editing-badge {
+      background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber);
+      border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+    }
+
+    /* ── SECTION LABEL ── */
+    .section-label { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 700; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1.5px solid var(--border); display: flex; align-items: baseline; gap: 10px; }
+    .section-label small { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink3); font-weight: 500; }
+
+    /* ── MARK PAGE ── */
+    .mark-header { display: flex; align-items: center; justify-content: space-between; margin: 10px 0 10px; }
+    .mark-title { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 700; }
+    .mark-count { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink3); font-weight: 500; }
+    .quick-btns { display: flex; gap: 7px; margin-bottom: 14px; flex-wrap: wrap; }
+
+    /* ── STUDENT GRID ── */
+    .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+    @media (min-width: 900px) { .student-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; } }
+
+    .student-chip {
+      background: white; border: 1.5px solid var(--border); border-radius: var(--r);
+      padding: 14px 10px; cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; gap: 8px; transition: all .15s ease; user-select: none;
+      -webkit-tap-highlight-color: transparent; position: relative;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .student-chip:hover  { border-color: var(--ink3); box-shadow: 0 3px 8px rgba(0,0,0,.1); transform: translateY(-1px); }
+    .student-chip:active { transform: scale(.96); }
+    .student-chip.present { background: var(--green-bg); border-color: var(--green); box-shadow: 0 1px 4px rgba(45,106,63,.2); }
+    .student-chip.present:hover { box-shadow: 0 3px 10px rgba(45,106,63,.25); }
+    .student-chip.absent  { background: var(--red-bg); border-color: var(--red); opacity: .82; }
+    .avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; background: var(--cream2); color: var(--ink3); transition: all .2s; border: 1.5px solid var(--border); }
+    .student-chip.present .avatar { background: var(--green); color: white; border-color: var(--green); }
+    .student-chip.absent  .avatar { background: var(--red);   color: white; border-color: var(--red); }
+    .student-name  { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.3; color: var(--ink); }
+    .chip-status   { font-size: 10px; color: var(--ink3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
+    .student-chip.present .chip-status { color: var(--green); }
+    .student-chip.absent  .chip-status { color: var(--red); }
+    .archive-hint {
+      font-size: 9px; color: var(--ink3); opacity: 0; transition: opacity .2s;
+      letter-spacing: 0.3px; text-transform: uppercase;
+    }
+    .student-chip:hover .archive-hint { opacity: 1; }
+    .student-chip::after { content: '✓'; position: absolute; top: 6px; right: 8px; font-size: 10px; font-weight: 700; color: var(--green); opacity: 0; transition: opacity .2s; }
+    .student-chip.present::after { opacity: 1; }
+
+    /* ── SIDEBAR ── */
+    .sidebar-card { background: white; border: 1.5px solid var(--border); border-radius: var(--r); padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-top: 16px; }
+    .sidebar-card h3 { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--ink); padding-bottom: 8px; border-bottom: 1px solid var(--cream3); }
+    .sidebar-stat { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .sidebar-stat:last-child { margin-bottom: 0; }
+    .sidebar-stat-label { font-size: 12px; color: var(--ink3); font-weight: 500; }
+    .sidebar-stat-val { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--ink); }
+    .sidebar-stat-val.green { color: var(--green); }
+    .sidebar-stat-val.red   { color: var(--red); }
+    .sidebar-stat-val.amber { color: var(--amber); }
+    .sidebar-progress { margin-top: 12px; }
+    .prog-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink3); margin-bottom: 5px; }
+    .prog-track { height: 6px; background: var(--cream3); border-radius: 99px; }
+    .prog-fill  { height: 6px; border-radius: 99px; background: var(--green); transition: width .4s ease; }
+
+    /* pending list in sidebar */
+    .pending-list { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--cream3); }
+    .pending-item { font-size: 11px; color: var(--amber); display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+
+    /* ── BUTTONS ── */
+    .btn-row { display: flex; gap: 8px; }
+    .btn { flex: 1; padding: 13px; border-radius: var(--r); border: none; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; letter-spacing: 0.3px; }
+    .btn-primary   { background: var(--ink); color: var(--cream); }
+    .btn-primary:hover  { background: var(--ink2); }
+    .btn-primary:active { opacity: .85; transform: scale(.98); }
+    .btn-secondary { background: white; color: var(--ink2); border: 1.5px solid var(--border); }
+    .btn-secondary:hover  { background: var(--cream2); }
+    .btn-secondary:active { opacity: .7; }
+    .btn:disabled  { opacity: .45; cursor: not-allowed; transform: none !important; }
+    .btn-sm { background: white; border: 1.5px solid var(--border); border-radius: 6px; padding: 7px 13px; font-size: 11px; font-weight: 600; color: var(--ink2); cursor: pointer; text-transform: uppercase; letter-spacing: 0.4px; transition: all .15s; }
+    .btn-sm:hover  { background: var(--cream2); border-color: var(--ink3); }
+    .btn-sm:active { opacity: .7; }
+    .action-bar-desktop { display: none; }
+    @media (min-width: 900px) {
+      .action-bar-desktop { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+      .action-bar-fixed   { display: none !important; }
+    }
+
+    /* ── SUB-TABS ── */
+    .sub-tabs { display: flex; gap: 4px; background: var(--cream2); border: 1.5px solid var(--border); border-radius: 8px; padding: 3px; margin-bottom: 16px; }
+    .sub-tab { flex: 1; padding: 8px 12px; border: none; border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--ink3); transition: all .15s; letter-spacing: 0.2px; }
+    .sub-tab:hover { color: var(--ink2); }
+    .sub-tab.active { background: white; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .sub-panel { display: none; }
+    .sub-panel.active { display: block; }
+
+    /* ── AT-RISK FILTER ── */
+    .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+    .filter-chip { background: var(--cream2); border: 1.5px solid var(--border); border-radius: 99px; padding: 5px 12px; font-size: 11px; font-weight: 600; color: var(--ink3); cursor: pointer; transition: all .15s; }
+    .filter-chip:hover { border-color: var(--ink3); color: var(--ink); }
+    .filter-chip.active { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+    .filter-chip.active-green { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+
+    /* ── STAT CARDS ── */
+    .summary-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 4px 0 16px; }
+    .stat-card { background: white; border: 1.5px solid var(--border); border-radius: var(--r); padding: 16px 10px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+    .stat-num { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 700; color: var(--ink); }
+    .stat-num.green { color: var(--green); }
+    .stat-num.amber { color: var(--amber); }
+    .stat-label { font-size: 10px; color: var(--ink3); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── STUDENT ROWS ── */
+    .student-row { background: white; border: 1.5px solid var(--border); border-radius: var(--r); padding: 12px 14px; display: flex; align-items: center; gap: 12px; margin-bottom: 7px; box-shadow: 0 1px 3px rgba(0,0,0,.04); transition: box-shadow .15s; }
+    .student-row:hover { box-shadow: 0 3px 8px rgba(0,0,0,.09); }
+    .s-avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 13px; font-weight: 700; background: var(--cream2); color: var(--ink3); border: 1.5px solid var(--border); }
+    .s-info { flex: 1; }
+    .s-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .s-stat { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+    .s-bar-wrap { width: 60px; text-align: right; }
+    .s-pct { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; }
+    .bar-track { height: 4px; background: var(--cream3); border-radius: 99px; margin-top: 5px; }
+    .bar-fill  { height: 4px; border-radius: 99px; background: var(--green); transition: width .4s ease; }
+
+    /* ── HISTORY TABLE ── */
+    .history-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--r); border: 1.5px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; min-width: 280px; background: white; }
+    th { font-size: 10px; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.6px; padding: 10px 12px; text-align: left; background: var(--cream2); border-bottom: 1.5px solid var(--border); }
+    td { font-size: 13px; padding: 10px 12px; border-bottom: 1px solid var(--cream3); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--cream); cursor: pointer; }
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .pill.p { background: var(--green-bg); color: var(--green); }
+    .pill.a { background: var(--red-bg);   color: var(--red); }
+
+    /* ── SETTINGS ── */
+    .settings-panel { background: white; border: 1.5px solid var(--border); border-radius: var(--r); padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .settings-panel h3 { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--ink); padding-bottom: 8px; border-bottom: 1px solid var(--cream3); }
+    .settings-panel p { font-size: 13px; color: var(--ink3); line-height: 1.7; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    input[type=text], input[type=password] { flex: 1; background: var(--cream); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 13px; color: var(--ink); font-family: 'Inter', sans-serif; font-size: 13px; outline: none; transition: border-color .15s; }
+    input:focus { border-color: var(--ink2); }
+    input::placeholder { color: var(--ink3); }
+    textarea { width: 100%; background: var(--cream); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 13px; color: var(--ink); font-family: 'Inter', sans-serif; font-size: 13px; outline: none; resize: vertical; min-height: 120px; margin-bottom: 8px; transition: border-color .15s; }
+    textarea:focus { border-color: var(--ink2); }
+    code { background: var(--cream2); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--ink2); border: 1px solid var(--border); }
+
+    /* ── ABOUT STEPS ── */
+    .steps { list-style: none; counter-reset: step; }
+    .steps li { counter-increment: step; display: flex; gap: 11px; margin-bottom: 12px; font-size: 13px; color: var(--ink3); line-height: 1.65; }
+    .steps li::before { content: counter(step); min-width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--cream); font-family: 'Playfair Display', serif; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .steps li b { color: var(--ink); }
+
+    /* ── TOAST ── */
+    #toast { position: fixed; bottom: calc(20px + var(--safe-b)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--cream); padding: 10px 22px; border-radius: 99px; font-size: 13px; font-weight: 600; opacity: 0; transition: all .3s; z-index: 999; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+    #toast.show    { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error   { background: var(--red); color: white; }
+    #toast.success { background: var(--green); color: white; }
+
+    /* ── SPINNER ── */
+    .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 48px 20px; color: var(--ink3); }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty p { font-size: 13px; line-height: 1.7; }
+
+    /* ── IMPORT PROGRESS ── */
+    .import-progress { height: 6px; background: var(--cream3); border-radius: 99px; margin-top: 10px; overflow: hidden; display: none; }
+    .import-progress-fill { height: 100%; background: var(--green); border-radius: 99px; width: 0%; transition: width .3s ease; }
+  </style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-logo">Takshashila</div>
+  <div class="splash-sub">Inspired by the Past, Empowering the Future</div>
+  <div class="splash-spinner"></div>
+  <div class="splash-status" id="splashStatus">Loading…</div>
+</div>
+
+<div id="offline-banner">⚡ You're offline — changes will sync when connection returns</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo-block" onclick="goHome()" style="cursor:pointer" title="Go to Attendance">
+    <div class="logo">Takshashila</div>
+    <div class="logo-sub">Inspired by the Past, Empowering the Future</div>
+  </div>
+  <div class="header-right">
+    <div class="date-badge" id="todayBadge"></div>
+    <button class="icon-btn" onclick="syncAll()" title="Sync">🔄<span class="sync-badge" id="syncBadge"></span></button>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('mark',this)">📋 Attendance</button>
+  <button class="tab" onclick="switchTab('dashboard',this)">📊 Records</button>
+  <button class="tab" onclick="switchTab('alumni',this)">🎓 Alumni</button>
+  <button class="tab" onclick="switchTab('settings',this)">⚙️ Settings</button>
+  <button class="tab" onclick="switchTab('about',this)">ℹ️ About</button>
+</div>
+
+<div class="app-body">
+
+  <!-- ── MARK PAGE ── -->
+  <div class="page active" id="page-mark">
+    <div>
+      <!-- Date picker -->
+      <div class="date-bar">
+        <label for="markDate">Date</label>
+        <input type="date" id="markDate" class="date-input" onchange="onDateChange()" />
+        <button class="date-today-btn" onclick="goToToday()">Today</button>
+        <span class="date-editing-badge" id="editingBadge" style="display:none">Editing past date</span>
+      </div>
+
+      <div class="mark-header">
+        <div class="mark-title">Class Attendance &nbsp;<span class="mark-count" id="countLabel">0 present</span></div>
+      </div>
+      <div class="quick-btns">
+        <button class="btn-sm" onclick="markAll()">✓ All Present</button>
+        <button class="btn-sm" onclick="markAllAbsent()">✗ All Absent</button>
+        <button class="btn-sm" onclick="clearAll()">↺ Reset</button>
+      </div>
+      <div id="studentGrid" class="student-grid"></div>
+    </div>
+
+    <!-- Sidebar (desktop) -->
+    <div class="mark-sidebar">
+      <div class="sidebar-card">
+        <h3>Summary</h3>
+        <div class="sidebar-stat"><span class="sidebar-stat-label">Present</span><span class="sidebar-stat-val green" id="sb-present">0</span></div>
+        <div class="sidebar-stat"><span class="sidebar-stat-label">Absent</span><span class="sidebar-stat-val red" id="sb-absent">0</span></div>
+        <div class="sidebar-stat"><span class="sidebar-stat-label">Unmarked</span><span class="sidebar-stat-val amber" id="sb-unmarked">0</span></div>
+        <div class="sidebar-progress">
+          <div class="prog-label"><span>Attendance rate</span><span id="sb-rate">—</span></div>
+          <div class="prog-track"><div class="prog-fill" id="sb-fill" style="width:0%"></div></div>
+        </div>
+        <div id="pendingList" class="pending-list" style="display:none">
+          <div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px">⏳ Pending sync</div>
+          <div id="pendingItems"></div>
+        </div>
+        <div class="action-bar-desktop">
+          <button class="btn btn-primary" id="saveBtnDesktop" onclick="saveAttendance()">Save Attendance</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile action bar -->
+    <div class="action-bar-fixed">
+      <button class="btn btn-primary" id="saveBtn" onclick="saveAttendance()">Save Attendance</button>
+    </div>
+  </div>
+
+  <!-- ── DASHBOARD PAGE ── -->
+  <div class="page" id="page-dashboard">
+    <div class="section-label">Overview</div>
+    <div class="summary-strip">
+      <div class="stat-card"><div class="stat-num" id="ov-students">—</div><div class="stat-label">Students</div></div>
+      <div class="stat-card"><div class="stat-num green" id="ov-sessions">—</div><div class="stat-label">Sessions</div></div>
+      <div class="stat-card"><div class="stat-num amber" id="ov-avg">—</div><div class="stat-label">Avg %</div></div>
+    </div>
+
+    <div class="sub-tabs">
+      <button class="sub-tab active" id="subtab-students" onclick="switchSubTab('students')">Per Student</button>
+      <button class="sub-tab" id="subtab-history" onclick="switchSubTab('history')">Session History <span id="histMeta" style="font-weight:400;opacity:.7"></span></button>
+    </div>
+
+    <div class="sub-panel active" id="subpanel-students">
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <span style="font-size:11px;font-weight:600;color:var(--ink3)">Filter:</span>
+        <button class="filter-chip active" id="filter-all" onclick="setFilter('all')">All</button>
+        <button class="filter-chip" id="filter-risk" onclick="setFilter('risk')">⚠ At Risk (&lt;75%)</button>
+        <button class="filter-chip" id="filter-good" onclick="setFilter('good')">✓ Good (≥75%)</button>
+      </div>
+      <div id="studentStats"></div>
+    </div>
+
+    <div class="sub-panel" id="subpanel-history">
+      <div class="history-scroll">
+        <table>
+          <thead><tr><th>Date</th><th>Present</th><th>Absent</th><th>Rate</th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+      <p style="font-size:11px;color:var(--ink3);margin-top:8px;text-align:center">Tap a row to edit that day's attendance</p>
+    </div>
+  </div>
+
+  <!-- ── ALUMNI PAGE ── -->
+  <div class="page" id="page-alumni">
+    <div class="section-label">Alumni <small id="alumniCount"></small></div>
+    <p style="font-size:13px;color:var(--ink3);margin-bottom:16px">
+      Students archived from your class. Their past attendance records are preserved.
+      Tap <b>Readmit</b> to bring someone back to the active roster.
+    </p>
+    <div id="alumniList"></div>
+  </div>
+
+  <!-- ── SETTINGS PAGE ── -->
+  <div class="page" id="page-settings">
+    <div class="settings-col">
+      <div class="section-label">Google Connection</div>
+      <div class="settings-panel">
+        <h3>Apps Script URL</h3>
+        <div class="input-row"><input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/…/exec" /></div>
+        <div class="input-row"><input type="text" id="gasKey" placeholder="Secret key (default: takshashila2025)" /></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="saveConfig()">Save & Test Connection</button>
+      </div>
+
+      <div class="section-label">Spreadsheet</div>
+      <div class="settings-panel">
+        <h3>Google Sheet Link</h3>
+        <div class="input-row"><input type="text" id="sheetLink" placeholder="https://docs.google.com/spreadsheets/d/…/edit" /></div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveSheetLink()">Save Sheet</button>
+        <p style="margin-top:10px">Paste the full URL of any Google Sheet you own.</p>
+        <p id="sheetIdDisplay" style="margin-top:8px;font-weight:600;color:var(--green);font-size:12px"></p>
+      </div>
+    </div>
+
+    <div class="settings-col">
+      <div class="section-label">Students</div>
+      <div class="settings-panel">
+        <h3>Student List</h3>
+        <textarea id="studentListInput" placeholder="Aarav Shah&#10;Priya Nair&#10;Rohan Mehta&#10;Ananya Kumar"></textarea>
+        <button class="btn btn-primary" style="width:100%" onclick="saveStudents()">Save Students</button>
+      </div>
+
+      <div class="section-label">Historical Data</div>
+      <div class="settings-panel">
+        <h3>One-time Import</h3>
+        <p>Imports past attendance from <code>historical_data.json</code>. Re-running overwrites matching dates.</p>
+        <div class="import-progress" id="importProgress"><div class="import-progress-fill" id="importFill"></div></div>
+        <button class="btn btn-secondary" style="width:100%;margin-top:10px" onclick="importHistoricalData()" id="importBtn">Import Historical Data</button>
+      </div>
+
+      <div class="section-label">Data</div>
+      <div class="settings-panel">
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="fetchRecords()">🔄 Sync Now</button>
+          <button class="btn btn-secondary" onclick="exportCSV()">⬇️ Export CSV</button>
+        </div>
+        <div class="btn-row" style="margin-top:8px">
+          <button class="btn btn-secondary" onclick="retrySyncQueue()">⏫ Retry Pending</button>
+          <button class="btn btn-secondary" onclick="resetLocalData()">🗑 Reset Local</button>
+        </div>
+        <p style="margin-top:8px;font-size:11px;color:var(--ink3)">Reset Local clears cached data only — does not affect Google Sheet.</p>
+        <div style="height:1px;background:var(--border);margin:14px 0"></div>
+        <button class="btn" style="width:100%;background:var(--red);color:white;font-weight:700" onclick="deleteEverywhere()">🗑 Delete All Data Everywhere</button>
+        <p style="margin-top:8px;font-size:11px;color:var(--ink3)">Wipes local app AND Google Sheet (Attendance + Students tabs). Start completely fresh.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ABOUT PAGE ── -->
+  <div class="page" id="page-about">
+    <div class="section-label">Takshashila Attendance <small id="versionLabel"></small></div>
+    <div class="settings-panel">
+      <h3>What this app does</h3>
+      <p>Take daily class attendance without paperwork. Open the app, tap each student who is present, and save. Everyone you don't tap is marked absent automatically.</p>
+      <p style="margin-top:10px">Every save writes straight into a Google Sheet — students as rows, dates as columns, P / A colour-coded in green and red.</p>
+    </div>
+    <div class="settings-panel">
+      <h3>The tabs</h3>
+      <ol class="steps">
+        <li><b>Attendance</b> — mark any date. Tap a card to cycle: unmarked → present → absent. Use the date picker to edit a past session.</li>
+        <li><b>Records</b> — overall stats, per-student attendance %, at-risk filter, and full session history. Tap any history row to edit that day.</li>
+        <li><b>Settings</b> — connect to Google Sheets, manage students, import history, export CSV.</li>
+      </ol>
+    </div>
+    <div class="settings-panel">
+      <h3>Offline support</h3>
+      <p>The app works fully offline. Any saves made without internet are queued and automatically synced to Google Sheet the next time you're online.</p>
+    </div>
+    <div class="settings-panel" style="text-align:center">
+      <p style="font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:var(--ink2)">"Inspired by the Past, Empowering the Future"</p>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+const APP_VERSION = "v1";
+
+let students   = [];
+let alumni     = [];   // archived students
+let attendance = {};
+let records    = [];
+let config     = {};
+let syncQueue  = [];
+let activeDate = todayStr();
+let studentFilter = 'all';
+
+// ── SPLASH ──
+function setSplashStatus(msg) {
+  const el = document.getElementById('splashStatus');
+  if (el) el.textContent = msg;
+}
+
+function hideSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  splash.classList.add('fade-out');
+  setTimeout(() => { splash.style.display = 'none'; }, 520);
+}
+
+function goHome() {
+  const markTab = document.querySelector('.tab[onclick*="\'mark\'"]');
+  if (markTab) switchTab('mark', markTab);
+}
+
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ── ONLINE / OFFLINE ──
+window.addEventListener('online',  () => { document.body.classList.remove('offline'); retrySyncQueue(); });
+window.addEventListener('offline', () => { document.body.classList.add('offline'); });
+if (!navigator.onLine) document.body.classList.add('offline');
+
+window.addEventListener('DOMContentLoaded', async () => {
+  setSplashStatus('Loading local data…');
+  loadStorage();
+  renderDate();
+  document.getElementById('markDate').value = activeDate;
+  loadAttendanceForDate(activeDate);
+  renderGrid();
+  renderAlumni();
+  const vEl = document.getElementById('versionLabel');
+  if (vEl) vEl.textContent = APP_VERSION;
+
+  // Restore last tab (but show splash while we fetch)
+  const lastTab = localStorage.getItem('ts_tab') || 'mark';
+  const tabEl = document.querySelector(`.tab[onclick*="'${lastTab}'"]`);
+  if (lastTab !== 'mark' && tabEl) switchTab(lastTab, tabEl);
+
+  renderPendingList();
+
+  if (config.url && navigator.onLine) {
+    setSplashStatus('Syncing with Google Sheets…');
+    await fetchRecords(true);
+    setSplashStatus('Ready!');
+  } else {
+    setSplashStatus(navigator.onLine ? 'Ready!' : 'Offline — using local data');
+  }
+
+  // Small pause so "Ready!" is visible for a moment
+  setTimeout(hideSplash, 600);
+});
+
+function loadStorage() {
+  students   = JSON.parse(localStorage.getItem('ts_students') || '[]');
+  alumni     = JSON.parse(localStorage.getItem('ts_alumni')   || '[]');
+  records    = JSON.parse(localStorage.getItem('ts_records')  || '[]');
+  config     = JSON.parse(localStorage.getItem('ts_config')   || '{}');
+  syncQueue  = JSON.parse(localStorage.getItem('ts_queue')    || '[]');
+  if (config.url)       document.getElementById('gasUrl').value = config.url;
+  if (config.key)       document.getElementById('gasKey').value = config.key;
+  if (config.sheetLink) document.getElementById('sheetLink').value = config.sheetLink;
+  if (config.sheetId)   showSheetId(config.sheetId);
+  if (students.length)  document.getElementById('studentListInput').value = students.join('\n');
+}
+
+function saveQueue() {
+  localStorage.setItem('ts_queue', JSON.stringify(syncQueue));
+  renderPendingList();
+  const badge = document.getElementById('syncBadge');
+  if (syncQueue.length) { badge.textContent = syncQueue.length; badge.classList.add('show'); }
+  else badge.classList.remove('show');
+}
+
+function renderPendingList() {
+  const wrap  = document.getElementById('pendingList');
+  const items = document.getElementById('pendingItems');
+  if (!wrap) return;
+  if (!syncQueue.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  items.innerHTML = syncQueue.map(q =>
+    `<div class="pending-item">⏳ ${q.date} (${q.records.length} students)</div>`
+  ).join('');
+}
+
+function renderDate() {
+  document.getElementById('todayBadge').textContent =
+    new Date().toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' });
+}
+
+// ── DATE PICKER ──
+function onDateChange() {
+  activeDate = document.getElementById('markDate').value;
+  loadAttendanceForDate(activeDate);
+  renderGrid();
+  const isToday = activeDate === todayStr();
+  document.getElementById('editingBadge').style.display = isToday ? 'none' : 'inline-block';
+}
+
+function goToToday() {
+  activeDate = todayStr();
+  document.getElementById('markDate').value = activeDate;
+  loadAttendanceForDate(activeDate);
+  renderGrid();
+  document.getElementById('editingBadge').style.display = 'none';
+}
+
+function loadAttendanceForDate(date) {
+  const dayRecords = records.filter(r => r.date === date);
+  attendance = {};
+  if (dayRecords.length) {
+    students.forEach(s => {
+      const rec = dayRecords.find(r => r.name === s);
+      attendance[s] = rec ? rec.status : 'absent';
+    });
+  } else {
+    students.forEach(s => attendance[s] = 'unmarked');
+  }
+}
+
+function switchSubTab(name) {
+  document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('subtab-' + name).classList.add('active');
+  document.getElementById('subpanel-' + name).classList.add('active');
+  localStorage.setItem('ts_subtab', name);
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  el.classList.add('active');
+  localStorage.setItem('ts_tab', tab);
+  if (tab === 'dashboard') {
+    renderDashboard();
+    const lastSubTab = localStorage.getItem('ts_subtab') || 'students';
+    switchSubTab(lastSubTab);
+  }
+  if (tab === 'alumni') {
+    renderAlumni();
+    const el = document.getElementById('alumniCount');
+    if (el) el.textContent = alumni.length ? `${alumni.length} students` : '';
+  }
+}
+
+function renderGrid() {
+  const grid = document.getElementById('studentGrid');
+  if (!students.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📚</div><p>No students yet.<br/>Add them in Settings.</p></div>`;
+    updateCount(); return;
+  }
+  grid.innerHTML = students.map(name => {
+    const s   = attendance[name] || 'unmarked';
+    const ini = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const lbl = s === 'present' ? 'Present' : s === 'absent' ? 'Absent' : 'Tap to mark';
+    return `<div class="student-chip ${s === 'present' ? 'present' : s === 'absent' ? 'absent' : ''}"
+      onclick="toggle('${name.replace(/'/g, "\\'")}')"
+      oncontextmenu="archiveStudent('${name.replace(/'/g, "\\'")}', event)"
+      data-longpress="${name.replace(/"/g, '&quot;')}">
+      <div class="avatar">${ini}</div>
+      <div class="student-name">${name}</div>
+      <div class="chip-status">${lbl}</div>
+      <div class="archive-hint">Hold to archive</div>
+    </div>`;
+  }).join('');
+
+  // Long-press for mobile
+  document.querySelectorAll('[data-longpress]').forEach(el => {
+    let timer;
+    el.addEventListener('touchstart', () => {
+      timer = setTimeout(() => archiveStudent(el.dataset.longpress), 600);
+    }, { passive: true });
+    el.addEventListener('touchend',   () => clearTimeout(timer), { passive: true });
+    el.addEventListener('touchmove',  () => clearTimeout(timer), { passive: true });
+  });
+
+  updateCount();
+}
+
+function toggle(name) {
+  const cur = attendance[name] || 'unmarked';
+  attendance[name] = cur === 'unmarked' ? 'present' : cur === 'present' ? 'absent' : 'unmarked';
+  renderGrid();
+}
+function markAll()       { students.forEach(s => attendance[s] = 'present'); renderGrid(); }
+function markAllAbsent() { students.forEach(s => attendance[s] = 'absent');  renderGrid(); }
+function clearAll()      { students.forEach(s => attendance[s] = 'unmarked'); renderGrid(); }
+
+function archiveStudent(name, e) {
+  if (e) e.preventDefault();
+  if (!confirm(`Archive "${name}"?\n\nThey will be removed from attendance and moved to Alumni. Their past records are kept.`)) return;
+  students = students.filter(s => s !== name);
+  if (!alumni.includes(name)) alumni.push(name);
+  localStorage.setItem('ts_students', JSON.stringify(students));
+  localStorage.setItem('ts_alumni',   JSON.stringify(alumni));
+  document.getElementById('studentListInput').value = students.join('\n');
+  delete attendance[name];
+  renderGrid();
+  renderAlumni();
+  showToast(`${name} archived`, 'success');
+  if (config.url) gasPost({ action: 'saveStudents', key: config.key || 'takshashila2025', students, alumni });
+}
+
+function readmitStudent(name) {
+  if (!confirm(`Re-Admit "${name}" to the current class?`)) return;
+  alumni = alumni.filter(a => a !== name);
+  if (!students.includes(name)) students.push(name);
+  localStorage.setItem('ts_students', JSON.stringify(students));
+  localStorage.setItem('ts_alumni',   JSON.stringify(alumni));
+  document.getElementById('studentListInput').value = students.join('\n');
+  attendance[name] = 'unmarked';
+  renderGrid();
+  renderAlumni();
+  showToast(`${name} re-admitted`, 'success');
+  if (config.url) gasPost({ action: 'saveStudents', key: config.key || 'takshashila2025', students, alumni });
+}
+
+function renderAlumni() {
+  const el = document.getElementById('alumniList');
+  if (!el) return;
+  if (!alumni.length) {
+    el.innerHTML = `<div class="empty" style="padding:24px 0"><div class="empty-icon" style="font-size:28px">🎓</div><p>No alumni yet.</p></div>`;
+    return;
+  }
+  el.innerHTML = alumni.map(name => {
+    const ini = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    return `<div class="student-row">
+      <div class="s-avatar" style="background:var(--cream3);color:var(--ink3)">${ini}</div>
+      <div class="s-info"><div class="s-name">${name}</div><div class="s-stat">Archived</div></div>
+      <button class="btn-sm" onclick="readmitStudent('${name.replace(/'/g, "\\'")}')" style="flex-shrink:0">↩ Re-Admit</button>
+    </div>`;
+  }).join('');
+}
+
+function updateCount() {
+  const vals     = Object.values(attendance);
+  const present  = vals.filter(v => v === 'present').length;
+  const absent   = vals.filter(v => v === 'absent').length;
+  const unmarked = vals.filter(v => v === 'unmarked').length;
+  const marked   = present + absent;
+  const rate     = marked > 0 ? Math.round(present / marked * 100) : 0;
+  document.getElementById('countLabel').textContent = `${present} present`;
+  const ids = { 'sb-present': present, 'sb-absent': absent, 'sb-unmarked': unmarked };
+  Object.entries(ids).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.textContent = v; });
+  const sbR = document.getElementById('sb-rate');
+  const sbF = document.getElementById('sb-fill');
+  if (sbR) sbR.textContent = marked > 0 ? rate + '%' : '—';
+  if (sbF) sbF.style.width = (marked > 0 ? rate : 0) + '%';
+}
+
+async function saveAttendance() {
+  if (!students.length) { showToast('No students added yet', 'error'); return; }
+  const rows = students.map(name => ({
+    date: activeDate, name,
+    status: attendance[name] === 'present' ? 'present' : 'absent'
+  }));
+  setSaveBtns('<span class="spinner"></span>Saving…', true);
+  records = records.filter(r => r.date !== activeDate).concat(rows);
+  localStorage.setItem('ts_records', JSON.stringify(records));
+
+  if (!config.url || !navigator.onLine) {
+    // Queue for later sync
+    syncQueue = syncQueue.filter(q => q.date !== activeDate);
+    syncQueue.push({ date: activeDate, records: rows });
+    saveQueue();
+    setSaveBtns('Save Attendance', false);
+    showToast(navigator.onLine ? '✓ Saved locally' : '✓ Saved — will sync when online', 'success');
+    renderGrid(); return;
+  }
+
+  const ok = await gasPost({ action: 'save', key: config.key || 'takshashila2025', records: rows });
+  setSaveBtns('Save Attendance', false);
+  if (ok) {
+    showToast('✓ Saved to Google Sheet', 'success');
+  } else {
+    // Failed — add to queue
+    syncQueue = syncQueue.filter(q => q.date !== activeDate);
+    syncQueue.push({ date: activeDate, records: rows });
+    saveQueue();
+    showToast('✓ Saved locally — will retry later', 'success');
+  }
+  renderGrid();
+}
+
+async function retrySyncQueue() {
+  if (!syncQueue.length || !config.url || !navigator.onLine) return;
+  showToast(`Syncing ${syncQueue.length} pending save(s)…`);
+  const remaining = [];
+  for (const item of syncQueue) {
+    const ok = await gasPost({ action: 'save', key: config.key || 'takshashila2025', records: item.records });
+    if (!ok) remaining.push(item);
+  }
+  syncQueue = remaining;
+  saveQueue();
+  if (!remaining.length) showToast('✓ All pending saves synced', 'success');
+  else showToast(`${remaining.length} save(s) still pending`, 'error');
+}
+
+function setSaveBtns(html, disabled) {
+  ['saveBtn', 'saveBtnDesktop'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.innerHTML = html; el.disabled = disabled; }
+  });
+}
+
+// ── JSONP GET ──
+function gasGet(params) {
+  return new Promise((resolve) => {
+    const cbName = 'cb_' + Date.now();
+    const qs = new URLSearchParams({
+      key: config.key || 'takshashila2025',
+      sheetId: config.sheetId || '',
+      callback: cbName, ...params
+    }).toString();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); resolve({ ok: false }); }, 25000);
+    function cleanup() { clearTimeout(timer); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); }
+    script.onerror = () => { cleanup(); resolve({ ok: false }); };
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.src = config.url + '?' + qs;
+    document.body.appendChild(script);
+  });
+}
+
+// ── JSONP POST ──
+function gasPost(body) {
+  return new Promise((resolve) => {
+    const cbName = 'postcb_' + Date.now();
+    let dataVal;
+    if (body._compact) {
+      // Base64-encode to avoid pipe/comma getting mangled by URLSearchParams double-encoding
+      dataVal = btoa(unescape(encodeURIComponent(body.data)));
+    } else {
+      dataVal = JSON.stringify(body);
+    }
+    const qs = new URLSearchParams({
+      key:      body.key || 'takshashila2025',
+      sheetId:  config.sheetId || '',
+      action:   body.action,
+      callback: cbName,
+      data:     dataVal,
+      enc:      body._compact ? 'b64' : ''
+    });
+    const script = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); resolve(false); }, 25000);
+    function cleanup() { clearTimeout(timer); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); }
+    window[cbName] = (data) => { cleanup(); resolve(data.ok || false); };
+    script.onerror  = () => { cleanup(); resolve(false); };
+    script.src = config.url + '?' + qs.toString();
+    document.body.appendChild(script);
+  });
+}
+
+async function fetchRecords(silent = false) {
+  if (!config.url) { if (!silent) showToast('No Apps Script URL set', 'error'); return; }
+  if (!navigator.onLine) { if (!silent) showToast('Offline — showing local data', 'error'); return; }
+  if (!silent) showToast('Syncing…');
+
+  // Pull students + alumni + records in parallel
+  const [data, sd] = await Promise.all([
+    gasGet({ action: 'records' }),
+    gasGet({ action: 'students' })
+  ]);
+
+  if (sd.ok) {
+    if (sd.students?.length) {
+      students = sd.students;
+      alumni   = sd.alumni || [];
+      localStorage.setItem('ts_students', JSON.stringify(students));
+      localStorage.setItem('ts_alumni',   JSON.stringify(alumni));
+      document.getElementById('studentListInput').value = students.join('\n');
+      renderAlumni();
+    }
+  }
+
+  if (data.ok) {
+    records = data.records;
+    localStorage.setItem('ts_records', JSON.stringify(records));
+    loadAttendanceForDate(activeDate);
+    renderGrid();
+    if (!silent) showToast('✓ Synced', 'success');
+    renderDashboard();
+  } else {
+    if (!silent) showToast('Sync failed', 'error');
+  }
+}
+
+async function syncAll() {
+  await retrySyncQueue();
+  await fetchRecords();
+}
+
+async function saveConfig() {
+  config = { ...config, url: document.getElementById('gasUrl').value.trim(), key: document.getElementById('gasKey').value.trim() || 'takshashila2025' };
+  localStorage.setItem('ts_config', JSON.stringify(config));
+  showToast('Testing connection…');
+  const data = await gasGet({ action: 'ping' });
+  if (data.ok) {
+    showToast('✓ Connected to Google!', 'success');
+    const sd = await gasGet({ action: 'students' });
+    if (sd.ok && sd.students?.length && !students.length) {
+      students = sd.students;
+      alumni   = sd.alumni || [];
+      localStorage.setItem('ts_students', JSON.stringify(students));
+      localStorage.setItem('ts_alumni',   JSON.stringify(alumni));
+      document.getElementById('studentListInput').value = students.join('\n');
+      loadAttendanceForDate(activeDate); renderGrid(); renderAlumni();
+    }
+  } else {
+    showToast('Connection failed — check URL', 'error');
+  }
+}
+
+function extractSheetId(url) {
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : null;
+}
+function showSheetId(id) {
+  const el = document.getElementById('sheetIdDisplay');
+  if (el) el.textContent = '✓ Sheet ID: ' + id;
+}
+
+async function saveSheetLink() {
+  const link = document.getElementById('sheetLink').value.trim();
+  const id   = extractSheetId(link);
+  if (!id) { showToast('Could not find a Sheet ID in that link', 'error'); return; }
+  config = { ...config, sheetLink: link, sheetId: id };
+  localStorage.setItem('ts_config', JSON.stringify(config));
+  showSheetId(id);
+  showToast('✓ Sheet linked', 'success');
+  if (config.url) {
+    const data = await gasGet({ action: 'ping' });
+    if (data.ok) { await fetchRecords(true); renderDashboard(); showToast('✓ Sheet connected', 'success'); }
+  }
+}
+
+async function saveStudents() {
+  const raw = document.getElementById('studentListInput').value;
+  students  = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  localStorage.setItem('ts_students', JSON.stringify(students));
+  loadAttendanceForDate(activeDate); renderGrid();
+  showToast(`✓ ${students.length} students saved`, 'success');
+  if (config.url) await gasPost({ action: 'saveStudents', key: config.key || 'takshashila2025', students, alumni });
+}
+
+async function importHistoricalData() {
+  if (!config.url) { showToast('Connect to Google first', 'error'); return; }
+  const btn  = document.getElementById('importBtn');
+  const bar  = document.getElementById('importProgress');
+  const fill = document.getElementById('importFill');
+  btn.innerHTML = '<span class="spinner"></span>Loading file…'; btn.disabled = true;
+  bar.style.display = 'block'; fill.style.width = '0%';
+  try {
+    const res  = await fetch('./historical_data.json');
+    const data = await res.json();
+    if (!data.records?.length) { showToast('No data found in file', 'error'); resetImportBtn(); return; }
+    if (data.students?.length) {
+      students = data.students;
+      localStorage.setItem('ts_students', JSON.stringify(students));
+      document.getElementById('studentListInput').value = students.join('\n');
+      loadAttendanceForDate(activeDate); renderGrid();
+      await gasPost({ action: 'saveStudents', key: config.key || 'takshashila2025', students, alumni });
+    }
+    const CHUNK = 200;
+    const total = data.records.length;
+    for (let i = 0; i < total; i += CHUNK) {
+      const chunk   = data.records.slice(i, i + CHUNK);
+      const done    = Math.min(i + CHUNK, total);
+      btn.innerHTML = `<span class="spinner"></span>Importing ${done}/${total}…`;
+      fill.style.width = Math.round(done / total * 100) + '%';
+      const compact = chunk.map(r => `${r.date}|${r.name}|${r.status === 'present' ? 'P' : 'A'}`).join(',');
+      const ok = await gasPost({ action: 'importBulk', key: config.key || 'takshashila2025', data: compact, _compact: true });
+      if (!ok) { showToast(`Import failed at record ${i + 1} — try again`, 'error'); resetImportBtn(); return; }
+    }
+    fill.style.width = '100%';
+    setTimeout(() => { bar.style.display = 'none'; fill.style.width = '0%'; }, 1200);
+    resetImportBtn();
+    showToast(`✓ Imported ${total} records`, 'success');
+    await fetchRecords(true);
+    renderDashboard();
+  } catch (err) {
+    resetImportBtn();
+    showToast('Import failed: ' + err.message, 'error');
+  }
+}
+function resetImportBtn() {
+  const btn = document.getElementById('importBtn');
+  btn.innerHTML = 'Import Historical Data'; btn.disabled = false;
+}
+
+// ── AT-RISK FILTER ──
+function setFilter(f) {
+  studentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => {
+    c.classList.remove('active', 'active-green');
+  });
+  const el = document.getElementById('filter-' + f);
+  if (f === 'risk') el.classList.add('active');
+  else if (f === 'good') el.classList.add('active-green');
+  else el.classList.add('active');
+  renderStudentStats();
+}
+
+function renderStudentStats() {
+  const allNames = students.length ? students : [...new Set(records.map(r => r.name))];
+  const rows = allNames.map(name => {
+    const mine = records.filter(r => r.name === name);
+    const pres = mine.filter(r => r.status === 'present').length;
+    const tot  = mine.length;
+    const pct  = tot ? Math.round(pres / tot * 100) : 0;
+    return { name, pres, tot, pct };
+  });
+
+  const filtered = rows.filter(r => {
+    if (studentFilter === 'risk') return r.pct < 75;
+    if (studentFilter === 'good') return r.pct >= 75;
+    return true;
+  });
+
+  if (!filtered.length) {
+    document.getElementById('studentStats').innerHTML =
+      `<div class="empty"><div class="empty-icon">🔍</div><p>No students match this filter.</p></div>`;
+    return;
+  }
+
+  document.getElementById('studentStats').innerHTML = filtered.map(({ name, pres, tot, pct }) => {
+    const ini = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const col = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="student-row">
+      <div class="s-avatar">${ini}</div>
+      <div class="s-info"><div class="s-name">${name}</div><div class="s-stat">${pres} of ${tot} sessions</div></div>
+      <div class="s-bar-wrap">
+        <div class="s-pct" style="color:${col}">${pct}%</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderDashboard() {
+  if (!records.length) {
+    document.getElementById('studentStats').innerHTML =
+      `<div class="empty"><div class="empty-icon">📊</div><p>No records yet.<br/>Mark attendance to see stats.</p></div>`;
+    document.getElementById('historyBody').innerHTML =
+      `<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:24px;font-size:13px">No sessions recorded yet</td></tr>`;
+    document.getElementById('ov-students').textContent = '—';
+    document.getElementById('ov-sessions').textContent = '—';
+    document.getElementById('ov-avg').textContent = '—';
+    return;
+  }
+  const allDates = [...new Set(records.map(r => r.date))].sort();
+  const allNames = students.length ? students : [...new Set(records.map(r => r.name))];
+  document.getElementById('ov-students').textContent = allNames.length;
+  document.getElementById('ov-sessions').textContent = allDates.length;
+  const pcts = allNames.map(name => {
+    const mine = records.filter(r => r.name === name);
+    return mine.length ? mine.filter(r => r.status === 'present').length / mine.length * 100 : 0;
+  });
+  const avg = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : 0;
+  document.getElementById('ov-avg').textContent = avg + '%';
+
+  renderStudentStats();
+
+  document.getElementById('histMeta').textContent = `${allDates.length} sessions`;
+  document.getElementById('historyBody').innerHTML = [...allDates].reverse().map(date => {
+    const day  = records.filter(r => r.date === date);
+    const pres = day.filter(r => r.status === 'present').length;
+    const abs  = day.filter(r => r.status === 'absent').length;
+    const rate = day.length ? Math.round(pres / day.length * 100) : 0;
+    const [y, m, d] = date.split('-');
+    const fmt  = new Date(+y, +m - 1, +d).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'2-digit' });
+    const col  = rate >= 75 ? 'var(--green)' : rate >= 50 ? 'var(--amber)' : 'var(--red)';
+    return `<tr onclick="editDate('${date}')">
+      <td style="font-weight:500">${fmt}</td>
+      <td><span class="pill p">${pres}</span></td>
+      <td><span class="pill a">${abs}</span></td>
+      <td style="color:${col};font-weight:600">${rate}%</td>
+    </tr>`;
+  }).join('');
+}
+
+// Tap a history row → jump to that date in Attendance tab
+function editDate(date) {
+  activeDate = date;
+  document.getElementById('markDate').value = date;
+  loadAttendanceForDate(date);
+  renderGrid();
+  document.getElementById('editingBadge').style.display = date === todayStr() ? 'none' : 'inline-block';
+  const markTab = document.querySelector('.tab[onclick*="\'mark\'"]');
+  switchTab('mark', markTab);
+  showToast(`Editing ${date}`, '');
+}
+
+function exportCSV() {
+  if (!records.length) { showToast('No data to export', 'error'); return; }
+  const csv = 'date,name,status\n' + records.map(r => `${r.date},${r.name},${r.status}`).join('\n');
+  const a   = document.createElement('a');
+  a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `takshashila_attendance_${todayStr()}.csv`;
+  a.click();
+  showToast('✓ Downloaded');
+}
+
+async function deleteEverywhere() {
+  if (!confirm('This will permanently delete ALL attendance and student data from both the app AND your Google Sheet.\n\nThis cannot be undone. Are you sure?')) return;
+  localStorage.removeItem('ts_students');
+  localStorage.removeItem('ts_alumni');
+  localStorage.removeItem('ts_records');
+  localStorage.removeItem('ts_queue');
+  students = []; alumni = []; records = []; attendance = {}; syncQueue = [];
+  document.getElementById('studentListInput').value = '';
+  renderGrid(); renderDashboard(); renderAlumni(); saveQueue();
+  if (config.url) {
+    showToast('Deleting from Google Sheet…');
+    const ok = await gasGet({ action: 'clearAll' });
+    showToast(ok.ok ? '✓ All data deleted everywhere' : 'Local cleared — Sheet delete failed', ok.ok ? 'success' : 'error');
+  } else {
+    showToast('✓ Local data cleared', 'success');
+  }
+}
+
+function resetLocalData() {
+  if (!confirm('Clear all local records and student list? Your Google Sheet is not affected.')) return;
+  localStorage.removeItem('ts_students');
+  localStorage.removeItem('ts_alumni');
+  localStorage.removeItem('ts_records');
+  localStorage.removeItem('ts_queue');
+  students = []; alumni = []; records = []; attendance = {}; syncQueue = [];
+  document.getElementById('studentListInput').value = '';
+  renderGrid(); renderDashboard(); renderAlumni(); saveQueue();
+  showToast('✓ Local data cleared', 'success');
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+let _tt;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => t.className = '', 2800);
+}
+</script>
+</body>
+</html>
