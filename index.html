@@ -304,7 +304,7 @@
     .steps li b { color: var(--ink); }
 
     /* ── TOAST ── */
-    #toast { position: fixed; bottom: calc(20px + var(--safe-b)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--cream); padding: 10px 22px; border-radius: 99px; font-size: 13px; font-weight: 600; opacity: 0; transition: all .3s; z-index: 999; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+    #toast { position: fixed; bottom: calc(20px + var(--safe-b)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--cream); padding: 10px 22px; border-radius: 16px; font-size: 13px; font-weight: 600; opacity: 0; transition: all .3s; z-index: 999; max-width: 90vw; white-space: pre-wrap; word-break: break-word; text-align: center; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
     #toast.show    { opacity: 1; transform: translateX(-50%) translateY(0); }
     #toast.error   { background: var(--red); color: white; }
     #toast.success { background: var(--green); color: white; }
@@ -777,7 +777,7 @@ async function clearAll() {
   if (config.url && navigator.onLine) {
     const data = await gasGet({ action: 'deleteDate', date: activeDate });
     if (data.ok) showToast('✓ Reset — removed from Sheet', 'success');
-    else showToast('✓ Reset locally — Sheet delete failed', 'error');
+    else showToast('✓ Reset locally — Sheet error: ' + (data.error || 'unknown'), 'error');
   } else {
     showToast(navigator.onLine ? '✓ Reset' : '✓ Reset — will need to sync delete later', 'success');
   }
@@ -1245,7 +1245,7 @@ function showToast(msg, type = '') {
   t.textContent = msg;
   t.className = 'show' + (type ? ' ' + type : '');
   clearTimeout(_tt);
-  _tt = setTimeout(() => t.className = '', 2800);
+  _tt = setTimeout(() => t.className = '', type === 'error' ? 6000 : 2800);
 }
 </script>
 </body>
