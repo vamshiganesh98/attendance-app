@@ -1005,7 +1005,7 @@ async function importHistoricalData() {
       loadAttendanceForDate(activeDate); renderGrid();
       await gasPost({ action: 'saveStudents', key: config.key || 'takshashila2025', students, alumni });
     }
-    const CHUNK = 200;
+    const CHUNK = 150;
     const total = data.records.length;
     for (let i = 0; i < total; i += CHUNK) {
       const chunk   = data.records.slice(i, i + CHUNK);
