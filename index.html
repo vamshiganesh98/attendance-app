@@ -553,18 +553,6 @@
       <button class="btn btn-primary" style="width:100%" onclick="saveStudents()">Save Students</button>
     </div>
 
-    <div class="drawer-section">Weekly Schedule</div>
-    <div class="settings-panel">
-      <h3>Per-student attendance days</h3>
-      <p>Add a <code>Schedule</code> sheet in your Google Sheet with columns <code>name, Mon, Tue, Wed, Thu, Fri, Sat, Sun</code> (Y/N per day). Students without a row are always shown. Unscheduled students for a given day are auto-marked No Class on save.</p>
-      <div class="btn-row" style="margin-top:10px">
-        <button class="btn btn-secondary" onclick="initSchedule()">＋ Create Schedule Sheet</button>
-        <button class="btn btn-secondary" onclick="fetchRecords()">🔄 Refresh Schedule</button>
-      </div>
-      <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="fixHistoricalSchedule()">🛠 Fix Past Records Against Schedule</button>
-      <p style="margin-top:8px;font-size:11px;color:var(--ink3)">Scans all saved attendance and corrects any P/A marked on a day a student wasn't scheduled, setting it to No Class (‑). Safe to run anytime after editing the Schedule sheet.</p>
-    </div>
-
     <div class="drawer-section">Data</div>
     <div class="settings-panel">
       <div class="btn-row">
@@ -572,10 +560,11 @@
         <button class="btn btn-secondary" onclick="exportCSV()">⬇️ Export CSV</button>
       </div>
       <div class="btn-row" style="margin-top:8px">
+        <button class="btn btn-secondary" onclick="sortDatesDescending()">↕️ Newest Date First</button>
         <button class="btn btn-secondary" onclick="retrySyncQueue()">⏫ Retry Pending</button>
-        <button class="btn btn-secondary" onclick="resetLocalData()">🗑 Reset Local</button>
       </div>
       <div class="btn-row" style="margin-top:8px">
+        <button class="btn btn-secondary" onclick="resetLocalData()">🗑 Reset Local</button>
         <button class="btn btn-secondary" onclick="importHistoricalData()" id="importBtn">⬆️ Import Historical</button>
       </div>
       <div class="import-progress" id="importProgress"><div class="import-progress-fill" id="importFill"></div></div>
@@ -605,7 +594,6 @@ let alumni     = [];   // archived students
 let attendance = {};
 let records    = [];
 let config     = {};
-let schedule   = {};   // { name: { Mon:true, Tue:false, ... } }
 let syncQueue  = [];
 let activeDate = todayStr();
 let studentFilter = 'all';
@@ -676,25 +664,11 @@ function loadStorage() {
   records    = JSON.parse(localStorage.getItem('ts_records')  || '[]');
   config     = JSON.parse(localStorage.getItem('ts_config')   || '{}');
   syncQueue  = JSON.parse(localStorage.getItem('ts_queue')    || '[]');
-  schedule   = JSON.parse(localStorage.getItem('ts_schedule') || '{}');
   if (config.url)       document.getElementById('gasUrl').value = config.url;
   if (config.key)       document.getElementById('gasKey').value = config.key;
   if (config.sheetLink) document.getElementById('sheetLink').value = config.sheetLink;
   if (config.sheetId)   showSheetId(config.sheetId);
   if (students.length)  document.getElementById('studentListInput').value = students.join('\n');
-}
-
-const WEEKDAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-// Returns true if student has class on this date's weekday.
-// No schedule entry at all → always shown (safe default).
-function isScheduled(name, dateStr) {
-  const entry = schedule[name];
-  if (!entry) return true;
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dow = WEEKDAY_NAMES[new Date(y, m - 1, d).getDay()];
-  if (entry[dow] === undefined) return true;
-  return entry[dow];
 }
 
 function saveQueue() {
@@ -744,11 +718,10 @@ function loadAttendanceForDate(date) {
   if (dayRecords.length) {
     students.forEach(s => {
       const rec = dayRecords.find(r => r.name === s);
-      if (rec) { attendance[s] = rec.status; return; }
-      attendance[s] = isScheduled(s, date) ? 'absent' : 'noclass';
+      attendance[s] = rec ? rec.status : 'absent';
     });
   } else {
-    students.forEach(s => attendance[s] = isScheduled(s, date) ? 'unmarked' : 'noclass');
+    students.forEach(s => attendance[s] = 'unmarked');
   }
 }
 
@@ -802,13 +775,7 @@ function renderGrid() {
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📚</div><p>No students yet.<br/>Add them in Settings.</p></div>`;
     updateCount(); return;
   }
-  const visible = students.filter(name => isScheduled(name, activeDate));
-  const hiddenCount = students.length - visible.length;
-  if (!visible.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📅</div><p>No students scheduled for this date.</p></div>`;
-    updateCount(); return;
-  }
-  grid.innerHTML = visible.map(name => {
+  grid.innerHTML = students.map(name => {
     const s   = attendance[name] || 'unmarked';
     const ini = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     const lbl = s === 'present' ? 'Present' : s === 'absent' ? 'Absent' : s === 'noclass' ? 'No Class' : 'Tap to mark';
@@ -823,9 +790,6 @@ function renderGrid() {
       <div class="archive-hint">Hold to archive</div>
     </div>`;
   }).join('');
-  if (hiddenCount > 0) {
-    grid.innerHTML += `<div class="empty" style="grid-column:1/-1;padding:16px 0"><p style="font-size:11px">${hiddenCount} student${hiddenCount > 1 ? 's' : ''} not scheduled today</p></div>`;
-  }
 
   // Long-press for mobile
   document.querySelectorAll('[data-longpress]').forEach(el => {
@@ -845,14 +809,14 @@ function toggle(name) {
   attendance[name] = cur === 'unmarked' ? 'present' : cur === 'present' ? 'absent' : cur === 'absent' ? 'noclass' : 'unmarked';
   renderGrid();
 }
-function markAll()       { students.forEach(s => { if (isScheduled(s, activeDate)) attendance[s] = 'present'; }); renderGrid(); }
-function markAllAbsent() { students.forEach(s => { if (isScheduled(s, activeDate)) attendance[s] = 'absent';  }); renderGrid(); }
+function markAll()       { students.forEach(s => attendance[s] = 'present'); renderGrid(); }
+function markAllAbsent() { students.forEach(s => attendance[s] = 'absent');  renderGrid(); }
 
 async function clearAll() {
   if (!confirm(`Reset attendance for ${activeDate}?\n\nThis clears all marks for this date and removes any saved record for it (local + Google Sheet).`)) return;
 
   // Reset in-memory marks
-  students.forEach(s => attendance[s] = isScheduled(s, activeDate) ? 'unmarked' : 'noclass');
+  students.forEach(s => attendance[s] = 'unmarked');
   renderGrid();
 
   // Remove this date's record locally
@@ -1055,11 +1019,10 @@ async function fetchRecords(silent = false) {
   if (!navigator.onLine) { if (!silent) showToast('Offline — showing local data', 'error'); return; }
   if (!silent) showToast('Syncing…');
 
-  // Pull students + alumni + records + schedule in parallel
-  const [data, sd, schd] = await Promise.all([
+  // Pull students + alumni + records in parallel
+  const [data, sd] = await Promise.all([
     gasGet({ action: 'records' }),
-    gasGet({ action: 'students' }),
-    gasGet({ action: 'schedule' })
+    gasGet({ action: 'students' })
   ]);
 
   if (sd.ok) {
@@ -1071,11 +1034,6 @@ async function fetchRecords(silent = false) {
       document.getElementById('studentListInput').value = students.join('\n');
       renderAlumni();
     }
-  }
-
-  if (schd.ok) {
-    schedule = schd.schedule || {};
-    localStorage.setItem('ts_schedule', JSON.stringify(schedule));
   }
 
   if (data.ok) {
@@ -1128,27 +1086,12 @@ function showSheetId(id) {
   if (el) el.textContent = '✓ Sheet ID: ' + id;
 }
 
-async function fixHistoricalSchedule() {
+async function sortDatesDescending() {
   if (!config.url) { showToast('Connect to Google first', 'error'); return; }
-  if (!confirm('This scans ALL saved attendance and changes P/A to No Class (‑) for any date a student wasn\'t scheduled.\n\nThis cannot be undone. Continue?')) return;
-  showToast('Scanning and fixing past records…');
-  const data = await gasGet({ action: 'fixHistoricalSchedule' });
+  showToast('Sorting dates, newest first…');
+  const data = await gasGet({ action: 'sortDatesDescending' });
   if (data.ok) {
-    showToast(`✓ Fixed ${data.fixed} record(s)`, 'success');
-    await fetchRecords(true);
-    renderDashboard();
-  } else {
-    showToast('Failed: ' + (data.error || 'unknown'), 'error');
-  }
-}
-
-async function initSchedule() {
-  if (!config.url) { showToast('Connect to Google first', 'error'); return; }
-  showToast('Setting up Schedule sheet…');
-  const data = await gasGet({ action: 'initSchedule' });
-  if (data.ok) {
-    showToast(data.created ? '✓ Schedule sheet created — edit it in Google Sheets' : 'Schedule sheet already exists', 'success');
-    await fetchRecords(true);
+    showToast(`✓ Sorted: ${(data.sheets || []).join(', ') || 'no sheets'}`, 'success');
   } else {
     showToast('Failed: ' + (data.error || 'unknown'), 'error');
   }
