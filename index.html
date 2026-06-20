@@ -561,6 +561,8 @@
         <button class="btn btn-secondary" onclick="initSchedule()">＋ Create Schedule Sheet</button>
         <button class="btn btn-secondary" onclick="fetchRecords()">🔄 Refresh Schedule</button>
       </div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="fixHistoricalSchedule()">🛠 Fix Past Records Against Schedule</button>
+      <p style="margin-top:8px;font-size:11px;color:var(--ink3)">Scans all saved attendance and corrects any P/A marked on a day a student wasn't scheduled, setting it to No Class (‑). Safe to run anytime after editing the Schedule sheet.</p>
     </div>
 
     <div class="drawer-section">Data</div>
@@ -1124,6 +1126,20 @@ function extractSheetId(url) {
 function showSheetId(id) {
   const el = document.getElementById('sheetIdDisplay');
   if (el) el.textContent = '✓ Sheet ID: ' + id;
+}
+
+async function fixHistoricalSchedule() {
+  if (!config.url) { showToast('Connect to Google first', 'error'); return; }
+  if (!confirm('This scans ALL saved attendance and changes P/A to No Class (‑) for any date a student wasn\'t scheduled.\n\nThis cannot be undone. Continue?')) return;
+  showToast('Scanning and fixing past records…');
+  const data = await gasGet({ action: 'fixHistoricalSchedule' });
+  if (data.ok) {
+    showToast(`✓ Fixed ${data.fixed} record(s)`, 'success');
+    await fetchRecords(true);
+    renderDashboard();
+  } else {
+    showToast('Failed: ' + (data.error || 'unknown'), 'error');
+  }
 }
 
 async function initSchedule() {
